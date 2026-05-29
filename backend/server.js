@@ -13,6 +13,8 @@ const middlewares = jsonServer.defaults();
 // CORS: permite peticiones desde Vercel y localhost
 const allowedOrigins = [
   /^https:\/\/.*\.vercel\.app$/,
+  'https://polijardin.online',
+  'https://www.polijardin.online',
   /^http:\/\/localhost:\d+$/,
   /^http:\/\/127\.0\.0\.1:\d+$/,
 ];
