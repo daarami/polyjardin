@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Leaf, Activity, Cpu, Bell, Settings, Home, Droplets, Thermometer,
   Sun, CheckCircle2, Cloud, CloudSun, History, Filter, Layers, Zap,
   AlertTriangle, Plus, Trash2, Edit, Save, X, MapPin, Gauge,
-  Sunset, Sparkles, Clock, ArrowLeft,
+  Sunset, Sparkles, Clock, ArrowLeft, BellOff, BellRing,
 } from 'lucide-react';
 import {
   SensorData, EvaluationResult, evaluateGarden, LightLevel,
@@ -69,6 +69,142 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
   </div>
 );
 
+// ─── Notifications Panel ──────────────────────────────────────────────────────
+
+const NotificationsPanel = ({
+  history,
+  secciones,
+  onClose,
+  onMarkAllRead,
+  unreadIds,
+}: {
+  history: EvaluationResult[];
+  secciones: SeccionHuerto[];
+  onClose: () => void;
+  onMarkAllRead: () => void;
+  unreadIds: Set<string>;
+}) => {
+  const alerts = history.filter(h => h.status === 'Alerta' || h.status === 'Atención');
+  const unreadCount = alerts.filter(a => unreadIds.has(a.id)).length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex justify-end"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="relative w-full max-w-sm h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <BellRing className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-slate-900 dark:text-white">Notificaciones</h2>
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={onMarkAllRead}
+                className="text-xs text-primary font-semibold hover:opacity-70 transition-opacity"
+              >
+                Marcar leídas
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {alerts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <BellOff className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="font-semibold text-slate-600 dark:text-slate-400">Sin alertas</p>
+              <p className="text-sm text-slate-400 leading-relaxed">Todas las condiciones del jardín están en óptimas condiciones.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {alerts.map((item) => {
+                const seccion = item.seccionId ? secciones.find(s => s.id === item.seccionId) : null;
+                const isUnread = unreadIds.has(item.id);
+                const isAlerta = item.status === 'Alerta';
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className={`px-5 py-4 relative ${isUnread ? 'bg-slate-50 dark:bg-slate-800/50' : ''}`}
+                  >
+                    {isUnread && (
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${isAlerta ? 'bg-red-100 dark:bg-red-900/20 text-red-500' : 'bg-amber-100 dark:bg-amber-900/20 text-amber-500'}`}>
+                        {isAlerta ? <AlertTriangle className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <StatusBadge status={item.status} />
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {new Date(item.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                          {item.recommendations.join(' · ')}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(item.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                          </span>
+                          {seccion && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${seccion.color} text-white`}>
+                              <MapPin className="w-2.5 h-2.5" />
+                              {seccion.nombre}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer summary */}
+        {alerts.length > 0 && (
+          <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <p className="text-xs text-slate-400 text-center">
+              {alerts.filter(a => a.status === 'Alerta').length} alertas críticas · {alerts.filter(a => a.status === 'Atención').length} avisos
+            </p>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+};
+
 // ─── Welcome View ─────────────────────────────────────────────────────────────
 
 const WelcomeView = ({ onStart }: { onStart: () => void }) => (
@@ -78,7 +214,6 @@ const WelcomeView = ({ onStart }: { onStart: () => void }) => (
     exit={{ opacity: 0 }}
     className="flex flex-col flex-1 justify-center items-center px-6 py-8 min-h-[100dvh]"
   >
-    {/* Logo */}
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -115,7 +250,6 @@ const WelcomeView = ({ onStart }: { onStart: () => void }) => (
       </p>
     </motion.div>
 
-    {/* Feature pills */}
     <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -210,7 +344,6 @@ const DashboardView = ({
       exit={{ opacity: 0 }}
       className="flex-1 p-4 space-y-4 max-w-2xl mx-auto w-full pb-28 overflow-y-auto"
     >
-      {/* Header row */}
       <div className="flex items-center justify-between pt-2">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Estado del Jardín</h2>
@@ -235,7 +368,6 @@ const DashboardView = ({
         )}
       </div>
 
-      {/* Status card */}
       <div className={`rounded-2xl border p-4 flex items-center gap-4 ${statusCfg.bg}`}>
         <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm">{statusCfg.icon}</div>
         <div className="flex-1 min-w-0">
@@ -250,7 +382,6 @@ const DashboardView = ({
         </button>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Óptimo', value: `${optimoPct}%`, icon: <CheckCircle2 className="w-4 h-4 text-primary" /> },
@@ -265,7 +396,6 @@ const DashboardView = ({
         ))}
       </div>
 
-      {/* Sensor metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard
           icon={<Droplets className="w-5 h-5 text-blue-500" />}
@@ -299,7 +429,6 @@ const DashboardView = ({
         />
       </div>
 
-      {/* Ideal conditions */}
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-4 h-4 text-primary" />
@@ -320,7 +449,6 @@ const DashboardView = ({
         </div>
       </Card>
 
-      {/* Tip */}
       <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex gap-3">
         <Sparkles className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
@@ -328,7 +456,6 @@ const DashboardView = ({
         </p>
       </div>
 
-      {/* Recent activity */}
       {history.length > 0 && (
         <Card>
           <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -407,7 +534,6 @@ const SimulatorView = ({
         </Card>
       )}
 
-      {/* Humedad */}
       <Card className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -426,7 +552,6 @@ const SimulatorView = ({
         </div>
       </Card>
 
-      {/* Temperatura */}
       <Card className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -445,7 +570,6 @@ const SimulatorView = ({
         </div>
       </Card>
 
-      {/* Luz */}
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Sun className="w-5 h-5 text-yellow-500" />
@@ -681,7 +805,6 @@ const HistoryView = ({
         </AnimatePresence>
       )}
 
-      {/* Detail Modal */}
       <AnimatePresence>
         {modalItem && (
           <motion.div
@@ -842,18 +965,34 @@ const SettingsView = ({
   const [newSeccionDesc, setNewSeccionDesc] = useState('');
   const [newSensorNombre, setNewSensorNombre] = useState('');
   const [newSensorTipo, setNewSensorTipo] = useState<SensorType>('humedad');
+  const [addingSensor, setAddingSensor] = useState(false);
+  const [addingSeccion, setAddingSeccion] = useState(false);
 
   const handleAddSeccion = async () => {
-    if (!newSeccionNombre.trim()) return;
-    await onAddSeccion(newSeccionNombre.trim(), newSeccionDesc.trim());
-    setNewSeccionNombre('');
-    setNewSeccionDesc('');
+    if (!newSeccionNombre.trim() || addingSeccion) return;
+    setAddingSeccion(true);
+    try {
+      await onAddSeccion(newSeccionNombre.trim(), newSeccionDesc.trim());
+      setNewSeccionNombre('');
+      setNewSeccionDesc('');
+    } finally {
+      setAddingSeccion(false);
+    }
   };
 
+  // FIX: using a ref to always get fresh newSensorTipo value inside async handler
+  const sensorTipoRef = useRef(newSensorTipo);
+  sensorTipoRef.current = newSensorTipo;
+
   const handleAddSensor = async () => {
-    if (!newSensorNombre.trim()) return;
-    await onAddSensor(newSensorNombre.trim(), newSensorTipo);
-    setNewSensorNombre('');
+    if (!newSensorNombre.trim() || addingSensor) return;
+    setAddingSensor(true);
+    try {
+      await onAddSensor(newSensorNombre.trim(), sensorTipoRef.current);
+      setNewSensorNombre('');
+    } finally {
+      setAddingSensor(false);
+    }
   };
 
   const tabs = [
@@ -874,7 +1013,6 @@ const SettingsView = ({
         <p className="text-sm text-slate-400">Gestiona secciones, sensores y preferencias.</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
         {tabs.map((tab) => (
           <button
@@ -893,7 +1031,6 @@ const SettingsView = ({
       </div>
 
       <AnimatePresence mode="wait">
-        {/* Tab: Secciones */}
         {activeTab === 'secciones' && (
           <motion.div key="secciones" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-4">
             <Card className="p-4 space-y-3">
@@ -903,6 +1040,7 @@ const SettingsView = ({
               <input
                 type="text" placeholder="Nombre de la sección" value={newSeccionNombre}
                 onChange={(e) => setNewSeccionNombre(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddSeccion()}
                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"
               />
               <input
@@ -911,10 +1049,14 @@ const SettingsView = ({
                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"
               />
               <button
-                onClick={handleAddSeccion} disabled={!newSeccionNombre.trim()}
+                onClick={handleAddSeccion}
+                disabled={!newSeccionNombre.trim() || addingSeccion}
                 className="w-full py-3 bg-primary text-white rounded-xl font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
               >
-                <Plus className="w-4 h-4" /> Agregar sección
+                {addingSeccion
+                  ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <Plus className="w-4 h-4" />}
+                {addingSeccion ? 'Agregando...' : 'Agregar sección'}
               </button>
             </Card>
 
@@ -964,7 +1106,6 @@ const SettingsView = ({
           </motion.div>
         )}
 
-        {/* Tab: Sensores */}
         {activeTab === 'sensores' && (
           <motion.div key="sensores" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
             <Card className="p-4 space-y-3">
@@ -974,6 +1115,7 @@ const SettingsView = ({
               <input
                 type="text" placeholder="Nombre del sensor" value={newSensorNombre}
                 onChange={(e) => setNewSensorNombre(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddSensor()}
                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm"
               />
               <div className="grid grid-cols-3 gap-2">
@@ -991,10 +1133,14 @@ const SettingsView = ({
                 ))}
               </div>
               <button
-                onClick={handleAddSensor} disabled={!newSensorNombre.trim()}
+                onClick={handleAddSensor}
+                disabled={!newSensorNombre.trim() || addingSensor}
                 className="w-full py-3 bg-primary text-white rounded-xl font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
               >
-                <Plus className="w-4 h-4" /> Agregar sensor
+                {addingSensor
+                  ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <Plus className="w-4 h-4" />}
+                {addingSensor ? 'Agregando...' : 'Agregar sensor'}
               </button>
             </Card>
 
@@ -1024,7 +1170,6 @@ const SettingsView = ({
           </motion.div>
         )}
 
-        {/* Tab: Config */}
         {activeTab === 'config' && (
           <motion.div key="config" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
             <Card className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1092,8 +1237,38 @@ export default function App() {
   const [seccionSeleccionada, setSeccionSeleccionada] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  // Track which alert IDs have been "seen" (stored in sessionStorage so it resets per session)
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem('pj_read_ids');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
 
-  // Load data from backend
+  const alertHistory = history.filter(h => h.status === 'Alerta' || h.status === 'Atención');
+  const unreadIds = new Set(alertHistory.map(a => a.id).filter(id => !readIds.has(id)));
+  const unreadCount = unreadIds.size;
+
+  const markAllRead = useCallback(() => {
+    const newRead = new Set([...readIds, ...unreadIds]);
+    setReadIds(newRead);
+    try { sessionStorage.setItem('pj_read_ids', JSON.stringify([...newRead])); } catch {}
+  }, [readIds, unreadIds]);
+
+  const openNotifications = useCallback(() => {
+    setShowNotifications(true);
+  }, []);
+
+  // When a new alert comes in, add it to unread automatically
+  const prevHistoryLen = useRef(history.length);
+  useEffect(() => {
+    if (history.length > prevHistoryLen.current) {
+      // New items were added — they start as unread (not in readIds), nothing to do
+    }
+    prevHistoryLen.current = history.length;
+  }, [history]);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -1155,6 +1330,7 @@ export default function App() {
     setSecciones(prev => prev.filter(s => s.id !== id));
   }, []);
 
+  // FIX: removed stale closure issue — no deps that could go stale
   const handleAddSensor = useCallback(async (nombre: string, tipo: SensorType) => {
     const nuevo = await addSensor({ id: generateId(), nombre, tipo, activo: true });
     setSensores(prev => [...prev, nuevo]);
@@ -1187,7 +1363,7 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] bg-background-light dark:bg-background-dark font-display flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           <p className="text-sm text-slate-400 font-medium">Conectando con el servidor...</p>
         </div>
       </div>
@@ -1196,11 +1372,10 @@ export default function App() {
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-[100dvh] flex flex-col">
-      {/* Header */}
       {view !== 'welcome' && (
         <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-40">
           <div className="flex items-center gap-3">
-            {(view === 'recommendations') && (
+            {view === 'recommendations' && (
               <button onClick={() => setView('dashboard')} className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <ArrowLeft className="w-5 h-5 text-primary" />
               </button>
@@ -1221,17 +1396,25 @@ export default function App() {
                 Sin servidor
               </span>
             )}
-            <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative">
+            <button
+              onClick={openNotifications}
+              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
+            >
               <Bell className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-              {history.some(h => h.status === 'Alerta') && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              {unreadCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </motion.span>
               )}
             </button>
           </div>
         </header>
       )}
 
-      {/* Error banner */}
       {error && view !== 'welcome' && (
         <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-2 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
@@ -1239,7 +1422,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Main */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         <AnimatePresence mode="wait">
           {view === 'welcome' && (
@@ -1272,7 +1454,6 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Nav */}
       {view !== 'welcome' && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-100 dark:border-slate-800 flex px-2 pb-safe pt-2">
           {navItems.map((item) => {
@@ -1292,6 +1473,19 @@ export default function App() {
           })}
         </nav>
       )}
+
+      {/* Notifications Panel */}
+      <AnimatePresence>
+        {showNotifications && (
+          <NotificationsPanel
+            history={history}
+            secciones={secciones}
+            onClose={() => setShowNotifications(false)}
+            onMarkAllRead={markAllRead}
+            unreadIds={unreadIds}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
