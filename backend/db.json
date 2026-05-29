@@ -1,0 +1,45 @@
+{
+  "evaluaciones": [
+    {
+      "id": "ENPMlCUi9ao",
+      "timestamp": 1777274654308,
+      "data": { "humedad": 50, "temperatura": 24, "luz": "Medio" },
+      "status": "Atención",
+      "recommendations": ["Se recomienda riego moderado"],
+      "summary": "Atención recomendada",
+      "seccionId": "DTC8sZGmsj8"
+    },
+    {
+      "id": "RyiM4k0GUIE",
+      "timestamp": 1777276234711,
+      "data": { "humedad": 71, "temperatura": 34, "luz": "Alto" },
+      "status": "Alerta",
+      "recommendations": ["Humedad adecuada", "Se recomienda aumentar sombra"],
+      "summary": "Acción necesaria inmediata"
+    }
+  ],
+  "secciones": [
+    {
+      "id": "DTC8sZGmsj8",
+      "nombre": "Flores",
+      "descripcion": "Gerbreras, violetas y lavanda.",
+      "sensoresAsignados": [],
+      "color": "bg-green-500"
+    },
+    {
+      "id": "DTC8sZGmsj0",
+      "nombre": "Girasoles",
+      "descripcion": "",
+      "sensoresAsignados": [],
+      "color": "bg-yellow-500"
+    }
+  ],
+  "sensores": [
+    {
+      "id": "AFBjZTbXOMA",
+      "nombre": "Sensor Temperatura",
+      "tipo": "temperatura",
+      "activo": true
+    }
+  ]
+}
