@@ -1993,20 +1993,7 @@ export default function App() {
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-[100dvh] flex flex-col">
       {/* Header */}
       {isMainView && (
-        <header className="
-flex items-center gap-1.5
-px-4 py-2.5
-rounded-2xl
-text-sm font-bold
-bg-primary/10
-text-primary
-border border-primary/20
-hover:bg-primary
-hover:text-white
-hover:scale-105
-transition-all duration-200
-shadow-sm hover:shadow-lg hover:shadow-primary/20
-">
+        <header className="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 sticky top-0 z-40">
           <div className="flex items-center gap-3">
             {view === 'recommendations' && (
               <button onClick={() => setView('dashboard')} className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
